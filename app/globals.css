@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #7db8e8;
+  --color-primary-strong: #4a88c7;
+  --color-surface: #f2f8fd;
+  --color-card: #ffffff;
+  --color-accent: #ffc93c;
+  --color-on-accent: #1a2634;
+  --color-ink: #1a2634;
+  --color-ink-secondary: #46576b;
+  --color-ink-tertiary: #5c6c7e;
+  --color-success: #17703f;
+  --color-danger: #c0392b;
+  --color-muted: #b9c4cf;
+  --color-border: #dfeaf4;
+  --color-border-strong: #6b7f94;
+  --color-focus: #3a7bbf;
+  --radius-card: 16px;
+  --shadow-card: 0 2px 10px rgb(26 38 52 / 0.05), 0 10px 28px rgb(26 38 52 / 0.07);
+}
+
+/* 暗黑极客主题：@theme 生成的变量位于 layer 内，这里的未分层覆盖优先级更高 */
+[data-theme="dark"] {
+  --color-primary: #8fc6f2;
+  --color-primary-strong: #8fc6f2;
+  --color-surface: #0b1220;
+  --color-card: #141e30;
+  --color-accent: #ffc93c;
+  --color-on-accent: #1a2634;
+  --color-ink: #e8eef7;
+  --color-ink-secondary: #c6d1de;
+  --color-ink-tertiary: #9cabbd;
+  --color-success: #6fdca4;
+  --color-danger: #ff8a7a;
+  --color-muted: #4a5a70;
+  --color-border: #26344c;
+  --color-border-strong: #5b7399;
+  --color-focus: #8fc6f2;
+  --shadow-card: 0 2px 10px rgb(0 0 0 / 0.35), 0 10px 28px rgb(0 0 0 / 0.4);
+}
+
+/* 主题切换按钮图标与 sr-only 主题名：全部渲染（保证水合一致），由 CSS 决定显示哪个 */
+html[data-theme="dark"] .theme-icon-sun {
+  display: none;
+}
+html:not([data-theme="dark"]) .theme-icon-moon {
+  display: none;
+}
+html[data-theme="dark"] .theme-label-light {
+  display: none;
+}
+html:not([data-theme="dark"]) .theme-label-dark {
+  display: none;
+}
+
+/* 全局尊重 prefers-reduced-motion：关闭 CSS 过渡/动画（Framer Motion 的弹簧由 JS 侧 useReducedMotion 处理） */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

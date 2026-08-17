@@ -1,0 +1,39 @@
+{
+  "name": "interview-scheduler",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "node e2e/verify-e2e.cjs && node e2e/verify-features.cjs",
+    "qa:visual": "node scripts/visual-qa.mjs",
+    "probe:perf": "node scripts/perf-probe.mjs"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.3",
+    "framer-motion": "^11.18.2",
+    "lucide-react": "latest",
+    "next": "^15.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.25.76",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/canvas-confetti": "^1.6.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.23",
+    "postcss": "^8.5.0",
+    "puppeteer-core": "^25.8.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
+  }
+}

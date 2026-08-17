@@ -8,9 +8,10 @@ export interface SessionData {
 
 const DEV_SECRET = "dev-only-secret-0123456789abcdef0123456789abcdef";
 
-/** 会话 cookie 配置（生产环境必须设置 AUTH_SECRET） */
+/** 会话 cookie 配置（生产环境必须设置 AUTH_SECRET）。
+ *  用 || 而非 ??：Vercel 等平台里「已创建但值为空」的环境变量是空字符串，?? 不会触发兜底 */
 export const sessionOptions = {
-  password: process.env.AUTH_SECRET ?? DEV_SECRET,
+  password: process.env.AUTH_SECRET?.trim() || DEV_SECRET,
   cookieName: "interview-scheduler-session",
   cookieOptions: {
     httpOnly: true,

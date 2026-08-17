@@ -153,6 +153,8 @@
 
 ## 15. 当前进度
 
-- ✅ 阶段 0 本地部分已全部完成：git 初始化、MIT、README、.env.example、CI（Actions）、部署指南、截图归档
-- ⏳ 等待你在 GitHub 上创建仓库并登录 gh（部署指南第一步），随后我执行推送
+- ✅ **阶段 0 完成**：仓库已上线 https://github.com/ahuixueai/interview-scheduler ，CI 全绿（类型检查/lint/25 单测/构建）
+- ✅ **阶段 1 完成（本地）**：邮箱+密码注册登录（任意邮箱）、登录页、会话守卫、Postgres + Drizzle、全部 CRUD 迁移服务端 API、新用户自动播种演示数据、**按用户隔离 + 越权 404（e2e 实测）**；GitHub CI 全绿
+- ⏳ 阶段 1 收尾：云数据库（Supabase）配置 + Vercel 线上部署（按 docs/部署指南.md 第二、三步）
+- ▶️ 下一阶段：阶段 2（服务端 OAuth + 日历双向同步 + 自动提醒）
 - ▶️ 阶段 1（账号 + 数据层）随后启动

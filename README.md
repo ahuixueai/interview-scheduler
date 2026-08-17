@@ -30,10 +30,17 @@
 git clone <你的仓库地址>
 cd interview-scheduler
 npm install
-npm run dev        # http://localhost:3100
+# 需要本地 PostgreSQL（阶段 1 起账号与数据都在数据库）：
+#   macOS: brew install postgresql@17 && brew services start postgresql@17
+#   然后: createdb interview_scheduler
+cp .env.example .env.local   # 生成 AUTH_SECRET 并填入 DATABASE_URL
+npm run db:push              # 建表
+npm run dev                  # http://localhost:3100
 ```
 
-常用命令：`npm run typecheck`（tsc）· `npm run test`（单测）· `npm run build` · `npm run test:e2e`（需先起 dev）· `npm run qa:visual`
+首次打开会进入登录页：**任意邮箱注册**（QQ / 163 / Outlook / Gmail 均可），新账号自动播种演示数据。
+
+常用命令：`npm run typecheck`（tsc）· `npm run test`（单测）· `npm run build` · `npm run test:e2e`（需先起 dev + 数据库）· `npm run qa:visual`
 
 ## 🔗 连接 Google 日历（可选）
 

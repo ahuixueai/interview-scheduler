@@ -7,6 +7,8 @@ export const users = pgTable("users", {
   name: text("name"),
   passwordHash: text("password_hash"),
   image: text("image"),
+  /** 订阅日历的私有 token（生成后作为只读 .ics 地址的一部分） */
+  calendarFeedToken: text("calendar_feed_token"),
   createdAt: text("created_at").notNull(),
 });
 

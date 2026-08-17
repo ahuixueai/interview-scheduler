@@ -10,6 +10,7 @@ import { useGoogleSync } from "@/lib/useGoogleSync";
 import type { RemoteCalendarEvent } from "@/lib/integrations/google-calendar";
 import ScaleButton from "./ScaleButton";
 import RemoteEventsList, { remoteEventToDraft } from "./RemoteEventsList";
+import CalendarFeedSection from "./CalendarFeedSection";
 
 /** 日历同步设置：Client ID 配置、OAuth 连接、远端事件拉取与导入（未配置时显示三步指引） */
 export default function SyncSettingsDialog() {
@@ -80,6 +81,9 @@ export default function SyncSettingsDialog() {
         </div>
 
         <div className="mt-4 flex flex-col gap-3 overflow-y-auto pr-1">
+          <CalendarFeedSection active={syncDialogOpen} />
+
+          <p className="mt-2 text-xs font-semibold text-ink-secondary">🔗 Google 日历双向同步（可选）</p>
           <p className="text-xs leading-5 text-ink-tertiary">
             把面试自动放进你的 Google 日历。三步配置（一次性，约 3 分钟）：
             <br />

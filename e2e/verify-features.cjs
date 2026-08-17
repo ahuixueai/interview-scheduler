@@ -401,6 +401,74 @@ const themeOf = (page) =>
     await pageA.close();
   }
 
+  // ================= H. 订阅日历（手机自带日历，2A 核心） =================
+  {
+    const { page, msgs } = await H.openPage(browser);
+    await page.click("button[aria-label='日历同步设置']");
+    await sleep(800);
+
+    // 订阅链接自动生成
+    const feedUrl = await page.evaluate(() => {
+      const code = document.querySelector("code");
+      return code?.textContent?.trim() ?? "";
+    });
+    r.check(
+      "订阅链接已生成（私有 token）",
+      /\/api\/calendar\/[A-Za-z0-9_-]{20,}\.ics$/.test(feedUrl),
+      feedUrl.slice(0, 60),
+    );
+
+    // 抓取订阅源内容
+    const feedBody = await (await fetch(feedUrl)).text();
+    r.check("订阅源是合法日历", feedBody.includes("BEGIN:VCALENDAR") && feedBody.includes("END:VCALENDAR"));
+    r.check("订阅源包含面试事件", feedBody.includes("字节跳动"));
+    r.check("订阅源带 VALARM 提醒（提前 1 天/1 小时）", feedBody.includes("TRIGGER:-PT1440M") && feedBody.includes("TRIGGER:-PT60M"));
+
+    // 挂掉一场 → 订阅源即时移除
+    await page.evaluate(async () => {
+      const schedule = await (await fetch("/api/schedule")).json();
+      const target = schedule.interviews.find((iv) => iv.company === "美团");
+      await fetch("/api/interviews/" + target.id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "declined" }),
+      });
+    });
+    const feedAfter = await (await fetch(feedUrl)).text();
+    r.check("已挂面试从订阅源移除", !feedAfter.includes("美团"));
+
+    // 重置链接：旧地址立即失效、新地址生效
+    await page.evaluate(async () => {
+      await fetch("/api/calendar/feed-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset" }),
+      });
+    });
+    const oldStatus = (await fetch(feedUrl)).status;
+    r.check("重置后旧链接失效（404）", oldStatus === 404, String(oldStatus));
+    const newUrl = await page.evaluate(async () => {
+      const data = await (await fetch("/api/calendar/feed-info")).json();
+      return data.url;
+    });
+    r.check("重置后新链接生效", (await (await fetch(newUrl)).text()).includes("BEGIN:VCALENDAR"));
+
+    // 恢复美团状态，避免污染
+    await page.evaluate(async () => {
+      const schedule = await (await fetch("/api/schedule")).json();
+      const target = schedule.interviews.find((iv) => iv.company === "美团");
+      if (target) {
+        await fetch("/api/interviews/" + target.id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "upcoming" }),
+        });
+      }
+    });
+    r.check("订阅场景 console 干净", H.filterNoise(msgs).length === 0, H.filterNoise(msgs).join(" | "));
+    await page.close();
+  }
+
   await browser.close();
   const ok = r.finish();
   process.exit(ok ? 0 : 1);

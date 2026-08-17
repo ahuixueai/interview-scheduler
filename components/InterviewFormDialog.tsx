@@ -53,7 +53,7 @@ export default function InterviewFormDialog({ mode, onClose }: InterviewFormDial
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.company.trim() || !form.position.trim()) {
       setError("公司名称与岗位名称不能为空");
       return;
@@ -79,19 +79,24 @@ export default function InterviewFormDialog({ mode, onClose }: InterviewFormDial
     const importance = Number(form.importance) as 1 | 2 | 3 | 4 | 5;
 
     if (mode.kind === "create") {
-      addInterview({
-        company: form.company,
-        position: form.position,
-        type: form.type,
-        importance,
-        subCalendarId: form.subCalendarId,
-        startDate: form.dateStr,
-        startTime: form.timeStr,
-        sourceTimeZone: form.sourceTimeZone,
-        durationMinutes: duration,
-        meetingUrl: form.meetingUrl,
-        jdNotes: form.jdNotes,
-      });
+      try {
+        await addInterview({
+          company: form.company,
+          position: form.position,
+          type: form.type,
+          importance,
+          subCalendarId: form.subCalendarId,
+          startDate: form.dateStr,
+          startTime: form.timeStr,
+          sourceTimeZone: form.sourceTimeZone,
+          durationMinutes: duration,
+          meetingUrl: form.meetingUrl,
+          jdNotes: form.jdNotes,
+        });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "创建失败，请重试");
+        return;
+      }
     } else {
       updateInterview(mode.interview.id, {
         company: form.company.trim(),

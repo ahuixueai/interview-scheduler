@@ -23,7 +23,10 @@ async function indexOf(page, name) {
   const r = H.makeReporter();
 
   const { page, msgs } = await H.openPage(browser);
+  // 阶段 1：先注册登录（每个 run 唯一邮箱，触发服务端播种演示数据）
+  await H.ensureLoggedIn(page, `e2e-${Date.now()}@test.local`, "e2e-pass-123");
   const html = await page.content();
+  r.check("注册登录后进入主页", html.includes("面试与笔试日程"));
   r.check("水合后最高优先级徽章出现", html.includes("最高优先级"));
   r.check("水合后优先分出现", html.includes("优先分"));
   r.check("同区卡片显示「与你所在时区相同」", html.includes("与你所在时区相同"));

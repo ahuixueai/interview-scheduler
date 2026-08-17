@@ -34,6 +34,9 @@ export default function InterviewList() {
   const setSelectedSubCalendar = useScheduleStore((s) => s.setSelectedSubCalendar);
   const collapseCapsule = useScheduleStore((s) => s.collapseCapsule);
   const deleteInterview = useScheduleStore((s) => s.deleteInterview);
+  const load = useScheduleStore((s) => s.load);
+  const loaded = useScheduleStore((s) => s.loaded);
+  const loadError = useScheduleStore((s) => s.loadError);
   const reducedMotion = useReducedMotion() ?? false;
   const now = useNow(60_000);
   const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
@@ -43,10 +46,31 @@ export default function InterviewList() {
   // 重排 epoch：重排后重挂载列表，清掉 framer 高卡片上移时的投影残留（e2e 实测复现）；代价是重排动效瞬时化
   const [layoutEpoch, setLayoutEpoch] = useState(0);
 
-  // 挂载后从 localStorage 恢复持久化状态（首帧用 mock 与 SSR 一致，避免水合错配）
+  // 挂载后从服务端加载当前用户的日程（含首次自动播种的演示数据）
   useEffect(() => {
-    void useScheduleStore.persist.rehydrate();
-  }, []);
+    void load();
+  }, [load]);
+
+  // 筛选偏好：客户端 localStorage（UI 偏好，非业务数据）
+  const filterHydrated = useRef(false);
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("subcalendar-filter");
+      if (stored) setSelectedSubCalendar(stored);
+    } catch {
+      /* 私密模式降级 */
+    }
+    filterHydrated.current = true;
+  }, [setSelectedSubCalendar]);
+  useEffect(() => {
+    if (!filterHydrated.current) return;
+    try {
+      if (selectedSubCalendarId === null) window.localStorage.removeItem("subcalendar-filter");
+      else window.localStorage.setItem("subcalendar-filter", selectedSubCalendarId);
+    } catch {
+      /* 私密模式降级 */
+    }
+  }, [selectedSubCalendarId]);
 
   const byId = useMemo(() => new Map(interviews.map((i) => [i.id, i])), [interviews]);
   const items = useMemo(
@@ -124,6 +148,20 @@ export default function InterviewList() {
     (iv: Interview, trigger: HTMLElement) => setFocusTarget({ interview: iv, trigger }),
     [],
   );
+
+  if (!loaded) {
+    return (
+      <section aria-label="面试与笔试列表" tabIndex={-1} ref={sectionRef}>
+        {loadError ? (
+          <p className="rounded-card bg-card px-5 py-4 text-sm text-danger shadow-card" role="alert">
+            {loadError}
+          </p>
+        ) : (
+          <p className="text-sm text-ink-tertiary">正在加载你的日程…</p>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section aria-label="面试与笔试列表" tabIndex={-1} ref={sectionRef}>

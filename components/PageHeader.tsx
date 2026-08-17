@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CalendarCog, Plus, RefreshCw } from "lucide-react";
+import { CalendarCog, LogOut, Plus, RefreshCw } from "lucide-react";
 import { useUiStore } from "@/store/useUiStore";
 import ThemeToggle from "./ThemeToggle";
 import PepTalkBanner from "./PepTalkBanner";
@@ -10,7 +10,11 @@ import SubCalendarManager from "./SubCalendarManager";
 import InterviewFormDialog from "./InterviewFormDialog";
 import SyncSettingsDialog from "./SyncSettingsDialog";
 
-export default function PageHeader() {
+interface PageHeaderProps {
+  userEmail?: string;
+}
+
+export default function PageHeader({ userEmail }: PageHeaderProps) {
   const [managerOpen, setManagerOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const syncDialogOpen = useUiStore((s) => s.syncDialogOpen);
@@ -41,7 +45,9 @@ export default function PageHeader() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-ink">面试与笔试日程</h1>
-          <p className="mt-1 text-sm text-ink-secondary">向左滑标记 Offer，向右滑挂掉；上下拖动排序。</p>
+          <p className="mt-1 truncate text-sm text-ink-secondary">
+            {userEmail ? `${userEmail} · ` : ""}向左滑标记 Offer，向右滑挂掉
+          </p>
         </div>
         <div className="flex shrink-0 gap-2">
           <ScaleButton
@@ -70,6 +76,18 @@ export default function PageHeader() {
           >
             <RefreshCw size={14} aria-hidden />
             同步
+          </ScaleButton>
+          <ScaleButton
+            onClick={() => {
+              void fetch("/api/auth/logout", { method: "POST" }).then(() => {
+                window.location.href = "/login";
+              });
+            }}
+            ariaLabel="退出登录"
+            title={`当前登录：${userEmail ?? ""}`}
+            className="bg-ink/5 text-ink-secondary hover:bg-ink/10"
+          >
+            <LogOut size={14} aria-hidden />
           </ScaleButton>
           <ThemeToggle />
         </div>

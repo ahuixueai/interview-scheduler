@@ -1,50 +1,48 @@
 "use client";
 
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
-import type {
-  Interview,
-  InterviewDraft,
-  InterviewStatus,
-  InterviewUpdatePatch,
-  SubCalendar,
-} from "@/types";
-import { INTERVIEWS, SUB_CALENDARS } from "@/mocks/interviews";
+import type { Interview, InterviewDraft, InterviewUpdatePatch, SubCalendar } from "@/types";
 import { calcPriority } from "@/lib/priority";
-import { zonedWallToUtc } from "@/lib/time";
+import { api } from "@/lib/api";
 
 export type DeleteCalendarMode = "migrate" | "cascade";
+
+interface ScheduleSnapshot {
+  interviews: Interview[];
+  subCalendars: SubCalendar[];
+  order: string[];
+}
 
 interface ScheduleStore {
   interviews: Interview[];
   subCalendars: SubCalendar[];
-  /** 列表展示顺序（面试 id），初始按优先级降序；用户拖拽排序后以手调顺序为准 */
   order: string[];
-  /** 子日历筛选；null = 全部 */
+  loaded: boolean;
+  loadError: string | null;
+  /** 筛选与胶囊折叠是纯 UI 偏好，保留在客户端 */
   selectedSubCalendarId: string | null;
-  /** 备战胶囊的手动折叠时间戳（interviewId → 折叠截止毫秒），5 分钟内不自动展开 */
   capsuleCollapsedUntil: Record<string, number>;
+  load: () => Promise<void>;
   reorder: (ids: string[]) => void;
   markOffer: (id: string) => void;
   markDeclined: (id: string) => void;
   restore: (id: string) => void;
   sortByPriority: () => void;
   setSelectedSubCalendar: (id: string | null) => void;
-  addSubCalendar: (name: string, color: string) => string;
+  addSubCalendar: (name: string, color: string) => Promise<string>;
   updateSubCalendar: (id: string, patch: { name?: string; color?: string }) => void;
   deleteSubCalendar: (id: string, mode: DeleteCalendarMode, migrateTargetId?: string) => void;
   collapseCapsule: (interviewId: string, untilMs: number) => void;
-  /** 面试 CRUD：草稿为所在地时区的墙上时间，这里统一转 UTC ISO 存储 */
-  addInterview: (draft: InterviewDraft) => string;
+  addInterview: (draft: InterviewDraft) => Promise<string>;
   updateInterview: (id: string, patch: InterviewUpdatePatch) => void;
   deleteInterview: (id: string) => void;
 }
 
-function setStatus(interviews: Interview[], id: string, status: InterviewStatus): Interview[] {
-  return interviews.map((item) => (item.id === id ? { ...item, status } : item));
+function patchInterview(list: Interview[], id: string, patch: InterviewUpdatePatch): Interview[] {
+  return list.map((item) => (item.id === id ? { ...item, ...patch } : item));
 }
 
-/** 按优先级降序排序；已挂/取消的卡片沉底，不参与分数排序 */
+/** 按优先级降序；已挂/取消沉底 */
 function sortIdsByPriority(interviews: Interview[], nowMs: number): string[] {
   return [...interviews]
     .sort((a, b) => {
@@ -55,128 +53,128 @@ function sortIdsByPriority(interviews: Interview[], nowMs: number): string[] {
     .map((item) => item.id);
 }
 
-function newId(prefix: string): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return `${prefix}-${crypto.randomUUID()}`;
-  }
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
+export const useScheduleStore = create<ScheduleStore>()((set, get) => ({
+  interviews: [],
+  subCalendars: [],
+  order: [],
+  loaded: false,
+  loadError: null,
+  selectedSubCalendarId: null,
+  capsuleCollapsedUntil: {},
 
-/** 草稿 → Interview：墙上时间（所在地时区）转 UTC；meetingUrl/jdNotes 空串归一为 null */
-function draftToInterview(draft: InterviewDraft, id: string): Interview | null {
-  const startUtc = zonedWallToUtc(draft.startDate, draft.startTime, draft.sourceTimeZone);
-  if (!startUtc) return null;
-  return {
-    id,
-    company: draft.company.trim(),
-    position: draft.position.trim(),
-    startUtc,
-    endUtc: new Date(Date.parse(startUtc) + draft.durationMinutes * 60_000).toISOString(),
-    sourceTimeZone: draft.sourceTimeZone,
-    importance: draft.importance,
-    type: draft.type,
-    status: "upcoming",
-    subCalendarId: draft.subCalendarId,
-    prep: {
-      focusAreas: [],
-      note: "",
-      meetingUrl: draft.meetingUrl.trim() === "" ? null : draft.meetingUrl.trim(),
-      resumeUrl: null,
-      jdNotes: draft.jdNotes.trim() === "" ? null : draft.jdNotes.trim(),
-    },
-  };
-}
+  load: async () => {
+    set({ loadError: null });
+    try {
+      const snapshot = await api<ScheduleSnapshot>("/api/schedule");
+      set({ ...snapshot, loaded: true });
+    } catch (e) {
+      set({
+        loaded: true,
+        loadError: e instanceof Error ? e.message : "加载失败，请刷新重试",
+      });
+    }
+  },
 
-export const useScheduleStore = create<ScheduleStore>()(
-  persist(
-    (set, get) => ({
-      interviews: INTERVIEWS,
-      subCalendars: SUB_CALENDARS,
-      order: sortIdsByPriority(INTERVIEWS, Date.now()),
-      selectedSubCalendarId: null,
-      capsuleCollapsedUntil: {},
-      reorder: (ids) => set({ order: ids }),
-      markOffer: (id) => set((s) => ({ interviews: setStatus(s.interviews, id, "offer") })),
-      markDeclined: (id) => set((s) => ({ interviews: setStatus(s.interviews, id, "declined") })),
-      restore: (id) => set((s) => ({ interviews: setStatus(s.interviews, id, "upcoming") })),
-      sortByPriority: () => set((s) => ({ order: sortIdsByPriority(s.interviews, Date.now()) })),
-      setSelectedSubCalendar: (id) => set({ selectedSubCalendarId: id }),
-      addSubCalendar: (name, color) => {
-        const id = newId("sub");
-        set((s) => ({ subCalendars: [...s.subCalendars, { id, name, color, description: "" }] }));
-        return id;
-      },
-      updateSubCalendar: (id, patch) =>
-        set((s) => ({
-          subCalendars: s.subCalendars.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-        })),
-      deleteSubCalendar: (id, mode, migrateTargetId) => {
-        const state = get();
-        if (mode === "migrate" && migrateTargetId) {
-          set({
-            interviews: state.interviews.map((iv) =>
-              iv.subCalendarId === id ? { ...iv, subCalendarId: migrateTargetId } : iv,
-            ),
-            subCalendars: state.subCalendars.filter((c) => c.id !== id),
-            selectedSubCalendarId:
-              state.selectedSubCalendarId === id ? null : state.selectedSubCalendarId,
-          });
-          return;
-        }
-        // cascade：一并删除关联面试
-        const removedIds = new Set(
-          state.interviews.filter((iv) => iv.subCalendarId === id).map((iv) => iv.id),
-        );
+  reorder: (ids) => {
+    set({ order: ids });
+    void api("/api/schedule/order", { method: "PUT", body: JSON.stringify({ ids }) }).catch((e) =>
+      console.error("保存顺序失败", e),
+    );
+  },
+
+  markOffer: (id) => {
+    set((s) => ({ interviews: patchInterview(s.interviews, id, { status: "offer" }) }));
+    void api(`/api/interviews/${id}`, { method: "PATCH", body: JSON.stringify({ status: "offer" }) }).catch(
+      (e) => console.error("更新状态失败", e),
+    );
+  },
+  markDeclined: (id) => {
+    set((s) => ({ interviews: patchInterview(s.interviews, id, { status: "declined" }) }));
+    void api(`/api/interviews/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "declined" }),
+    }).catch((e) => console.error("更新状态失败", e));
+  },
+  restore: (id) => {
+    set((s) => ({ interviews: patchInterview(s.interviews, id, { status: "upcoming" }) }));
+    void api(`/api/interviews/${id}`, { method: "PATCH", body: JSON.stringify({ status: "upcoming" }) }).catch(
+      (e) => console.error("更新状态失败", e),
+    );
+  },
+
+  sortByPriority: () => {
+    const { interviews } = get();
+    const ids = sortIdsByPriority(interviews, Date.now());
+    get().reorder(ids);
+  },
+
+  setSelectedSubCalendar: (id) => set({ selectedSubCalendarId: id }),
+
+  addSubCalendar: async (name, color) => {
+    const data = await api<{ subCalendar: SubCalendar }>("/api/sub-calendars", {
+      method: "POST",
+      body: JSON.stringify({ name, color }),
+    });
+    set((s) => ({ subCalendars: [...s.subCalendars, data.subCalendar] }));
+    return data.subCalendar.id;
+  },
+  updateSubCalendar: (id, patch) => {
+    set((s) => ({
+      subCalendars: s.subCalendars.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    }));
+    void api(`/api/sub-calendars/${id}`, { method: "PATCH", body: JSON.stringify(patch) }).catch((e) =>
+      console.error("更新子日历失败", e),
+    );
+  },
+  deleteSubCalendar: (id, mode, migrateTargetId) => {
+    void api<ScheduleSnapshot>(`/api/sub-calendars/${id}`, {
+      method: "DELETE",
+      body: JSON.stringify({ mode, targetId: migrateTargetId }),
+    })
+      .then((snapshot) =>
         set({
-          interviews: state.interviews.filter((iv) => iv.subCalendarId !== id),
-          order: state.order.filter((interviewId) => !removedIds.has(interviewId)),
-          subCalendars: state.subCalendars.filter((c) => c.id !== id),
-          selectedSubCalendarId: state.selectedSubCalendarId === id ? null : state.selectedSubCalendarId,
-        });
-      },
-      collapseCapsule: (interviewId, untilMs) =>
-        set((s) => {
-          // 修剪超过 10 分钟的过期折叠记录，避免无界增长
-          const cutoff = Date.now() - 10 * 60_000;
-          const next: Record<string, number> = {};
-          for (const [id, ts] of Object.entries(s.capsuleCollapsedUntil)) {
-            if (ts > cutoff) next[id] = ts;
-          }
-          next[interviewId] = untilMs;
-          return { capsuleCollapsedUntil: next };
+          ...snapshot,
+          selectedSubCalendarId: get().selectedSubCalendarId === id ? null : get().selectedSubCalendarId,
         }),
-      addInterview: (draft) => {
-        const id = newId("iv");
-        const interview = draftToInterview(draft, id);
-        if (!interview) return "";
-        set((s) => ({
-          interviews: [...s.interviews, interview],
-          order: [...s.order, id],
-        }));
-        return id;
-      },
-      updateInterview: (id, patch) =>
-        set((s) => ({
-          interviews: s.interviews.map((iv) => (iv.id === id ? { ...iv, ...patch } : iv)),
-        })),
-      deleteInterview: (id) =>
-        set((s) => ({
-          interviews: s.interviews.filter((iv) => iv.id !== id),
-          order: s.order.filter((interviewId) => interviewId !== id),
-        })),
+      )
+      .catch((e) => console.error("删除子日历失败", e));
+  },
+
+  collapseCapsule: (interviewId, untilMs) =>
+    set((s) => {
+      const cutoff = Date.now() - 10 * 60_000;
+      const next: Record<string, number> = {};
+      for (const [id, ts] of Object.entries(s.capsuleCollapsedUntil)) {
+        if (ts > cutoff) next[id] = ts;
+      }
+      next[interviewId] = untilMs;
+      return { capsuleCollapsedUntil: next };
     }),
-    {
-      name: "schedule-store-v1",
-      storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({
-        interviews: s.interviews,
-        subCalendars: s.subCalendars,
-        order: s.order,
-        selectedSubCalendarId: s.selectedSubCalendarId,
-        capsuleCollapsedUntil: s.capsuleCollapsedUntil,
-      }),
-      // 挂载后再 rehydrate：首帧用 mock（与 SSR 一致），避免水合错配
-      skipHydration: true,
-    },
-  ),
-);
+
+  addInterview: async (draft) => {
+    const data = await api<{ interview: Interview }>("/api/interviews", {
+      method: "POST",
+      body: JSON.stringify(draft),
+    });
+    set((s) => ({
+      interviews: [...s.interviews, data.interview],
+      order: [...s.order, data.interview.id],
+    }));
+    return data.interview.id;
+  },
+  updateInterview: (id, patch) => {
+    set((s) => ({ interviews: patchInterview(s.interviews, id, patch) }));
+    void api(`/api/interviews/${id}`, { method: "PATCH", body: JSON.stringify(patch) }).catch((e) =>
+      console.error("更新面试失败", e),
+    );
+  },
+  deleteInterview: (id) => {
+    set((s) => ({
+      interviews: s.interviews.filter((iv) => iv.id !== id),
+      order: s.order.filter((interviewId) => interviewId !== id),
+    }));
+    void api(`/api/interviews/${id}`, { method: "DELETE" }).catch((e) =>
+      console.error("删除面试失败", e),
+    );
+  },
+}));

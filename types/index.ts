@@ -67,6 +67,7 @@ export interface InterviewDraft {
 export interface InterviewUpdatePatch {
   company?: string;
   position?: string;
+  status?: InterviewStatus;
   type?: InterviewType;
   importance?: ImportanceLevel;
   subCalendarId?: string;

@@ -24,12 +24,27 @@ ${this.failures.length === 0 ? "ALL PASS" : `${this.failures.length} FAILED`}`);
 
 function collectConsole(page) {
   const msgs = [];
-  page.on("console", (m) => msgs.push(`${m.type()}: ${m.text()}`));
+  // 只把 error/warn 视为问题；info/log/verbose（Chrome 内部提示、HMR 日志）是环境噪音
+  page.on("console", (m) => {
+    if (m.type() === "error" || m.type() === "warn") msgs.push(`${m.type()}: ${m.text()}`);
+  });
   page.on("pageerror", (e) => msgs.push(`PAGEERROR: ${e.message}`));
   page.on("response", (res) => {
     if (res.status() >= 400) msgs.push(`HTTP ${res.status()}: ${res.url()}`);
   });
   return msgs;
+}
+
+/** 通过注册表单完成登录（阶段 1 起所有页面需要登录；返回后停在主页并等待数据加载） */
+async function ensureLoggedIn(page, email, password) {
+  await page.goto(BASE_URL + "/login", { waitUntil: "networkidle0" });
+  await page.click("button[aria-label='切换到注册']");
+  await page.type("input[aria-label='邮箱']", email);
+  await page.type("input[aria-label='密码']", password);
+  await page.click("button[aria-label='注册并登录']");
+  await page.waitForFunction(() => window.location.pathname === "/", { timeout: 20000 });
+  await page.waitForSelector("ul li", { timeout: 20000 });
+  await sleep(2500);
 }
 
 /** 过滤第三方噪音：React DevTools 提示、framer-motion 在 reduced-motion 下的 dev-only 提示 */
@@ -180,6 +195,7 @@ module.exports = {
   cardBoxes,
   scrollToCard,
   clickUntil,
+  ensureLoggedIn,
   cardOrder,
   swipeLeftByMouse,
   swipeRightByMouse,

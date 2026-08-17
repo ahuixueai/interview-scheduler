@@ -1,14 +1,18 @@
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth/session";
 import PageHeader from "@/components/PageHeader";
 import InterviewList from "@/components/InterviewList";
 
-// 动态渲染：mock 数据（如「25 分钟后开始」）按请求时刻生成，
-// 若保持静态预渲染会在 build 时冻结时间，next start 后展示过期日程。
+// 动态渲染 + 登录守卫（未登录跳转 /login）
 export const dynamic = "force-dynamic";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getSession();
+  if (!session.userId) redirect("/login");
+
   return (
     <main className="mx-auto w-full max-w-2xl px-4 pb-16 pt-10">
-      <PageHeader />
+      <PageHeader userEmail={session.email} />
       <InterviewList />
     </main>
   );

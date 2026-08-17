@@ -48,13 +48,16 @@ const themeOf = (page) =>
     r.check("FOUC 防护：内联脚本先于正文内容", scriptPos > 0 && scriptPos < mainPos);
     r.check("FOUC 防护：脚本含系统偏好回退", raw.includes("prefers-color-scheme"));
 
-    // A2. 首次访问跟随系统偏好（暗色），首帧即正确
+    // A2. 首次访问跟随系统偏好（暗色），首帧即正确（此时落在登录页，主题机制全局生效）
     const { page, msgs } = await themePage(browser, "dark");
     const first = await themeOf(page);
     r.check("首访跟随系统偏好：data-theme=dark", first.attr === "dark");
     r.check("首帧背景即为暗色", first.bg === "rgb(11, 18, 32)", first.bg);
     const stored0 = await page.evaluate(() => localStorage.getItem("theme"));
     r.check("首次访问不写入显式选择", stored0 === null);
+
+    // 注册登录（同一会话，后续场景复用登录态）
+    await H.ensureLoggedIn(page, `e2e-${Date.now()}@test.local`, "e2e-pass-123");
 
     // A3. 显式切到浅色并持久化（刷新后仍浅色，覆盖系统偏好）
     await page.click("button[aria-label='切换主题']");
@@ -309,6 +312,93 @@ const themeOf = (page) =>
     r.check("Esc 可关闭同步设置", closed);
     r.check("日历场景 console 干净", H.filterNoise(msgs).length === 0, H.filterNoise(msgs).join(" | "));
     await page.close();
+  }
+
+  // ================= G. 用户数据隔离（阶段 1 核心验收） =================
+  {
+    const pageA = await browser.newPage();
+    await pageA.setViewport({ width: 900, height: 1100 });
+    await pageA.goto(H.BASE_URL, { waitUntil: "networkidle0" });
+    await sleep(2000);
+
+    // 用户 A 创建一条私有面试（直接走 API，避免 UI 干扰）
+    const createdA = await pageA.evaluate(async () => {
+      const schedule = await (await fetch("/api/schedule")).json();
+      const draft = {
+        company: "A私有数据",
+        position: "A的岗位",
+        type: "video",
+        importance: 3,
+        subCalendarId: schedule.subCalendars[0].id,
+        startDate: "2026-10-01",
+        startTime: "10:00",
+        sourceTimeZone: "America/New_York",
+        durationMinutes: 60,
+        meetingUrl: "",
+        jdNotes: "",
+      };
+      const res = await fetch("/api/interviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      return res.status;
+    });
+    r.check("用户 A 可通过 API 创建面试", createdA === 201, String(createdA));
+    const idA = await pageA.evaluate(async () => {
+      const schedule = await (await fetch("/api/schedule")).json();
+      return schedule.interviews.find((iv) => iv.company === "A私有数据")?.id ?? "";
+    });
+
+    // 全新浏览器上下文 = 全新会话，注册用户 B
+    const ctxB = await browser.createBrowserContext();
+    const pageB = await ctxB.newPage();
+    await pageB.setViewport({ width: 900, height: 1100 });
+    await H.ensureLoggedIn(pageB, `e2e-b-${Date.now()}@test.local`, "e2e-pass-123");
+
+    const htmlB = await pageB.content();
+    r.check("用户 B 看不到 A 的私有面试", !htmlB.includes("A私有数据"));
+
+    // 越权防护：B 尝试修改 A 的面试 → 404
+    const forbiddenStatus = await pageB.evaluate(async (targetId) => {
+      const res = await fetch("/api/interviews/" + targetId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "declined" }),
+      });
+      return res.status;
+    }, idA);
+    r.check("越权修改他人面试被拒绝（404）", forbiddenStatus === 404, String(forbiddenStatus));
+
+    // B 创建自己的数据，A 刷新后也看不到
+    await pageB.evaluate(async () => {
+      const schedule = await (await fetch("/api/schedule")).json();
+      await fetch("/api/interviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company: "B私有数据",
+          position: "B的岗位",
+          type: "hr-screen",
+          importance: 2,
+          subCalendarId: schedule.subCalendars[0].id,
+          startDate: "2026-10-02",
+          startTime: "14:00",
+          sourceTimeZone: "Asia/Shanghai",
+          durationMinutes: 45,
+          meetingUrl: "",
+          jdNotes: "",
+        }),
+      });
+    });
+    await pageA.reload({ waitUntil: "networkidle0" });
+    await sleep(2000);
+    const htmlA = await pageA.content();
+    r.check("用户 A 看不到 B 的私有面试", !htmlA.includes("B私有数据"));
+    r.check("用户 A 自己的数据仍可见", htmlA.includes("A私有数据"));
+
+    await ctxB.close();
+    await pageA.close();
   }
 
   await browser.close();

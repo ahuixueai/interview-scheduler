@@ -10,13 +10,18 @@
     "test": "vitest run",
     "test:e2e": "node e2e/verify-e2e.cjs && node e2e/verify-features.cjs",
     "qa:visual": "node scripts/visual-qa.mjs",
-    "probe:perf": "node scripts/perf-probe.mjs"
+    "probe:perf": "node scripts/perf-probe.mjs",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "canvas-confetti": "^1.9.3",
+    "drizzle-orm": "^0.45.2",
     "framer-motion": "^11.18.2",
+    "iron-session": "^8.0.4",
     "lucide-react": "latest",
     "next": "^15.5.0",
+    "postgres": "^3.4.9",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zod": "^3.25.76",
@@ -24,10 +29,12 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/canvas-confetti": "^1.6.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.23",
     "postcss": "^8.5.0",

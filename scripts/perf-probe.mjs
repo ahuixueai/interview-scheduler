@@ -32,6 +32,15 @@ await page.evaluateOnNewDocument(() => {
   };
 });
 
+// 阶段 1：先注册登录再进主页（保持基线/优化两轮测量的流程一致）
+await page.goto(BASE_URL + "/login", { waitUntil: "networkidle0" });
+await page.evaluate(async () => {
+  await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "qa-" + Date.now() + "@test.local", password: "qa-pass-123" }),
+  });
+});
 await page.goto(BASE_URL, { waitUntil: "networkidle0" });
 await new Promise((r) => setTimeout(r, 3500));
 

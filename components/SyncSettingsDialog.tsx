@@ -45,12 +45,12 @@ export default function SyncSettingsDialog() {
 
   if (!syncDialogOpen) return null;
 
-  const handleImport = (event: RemoteCalendarEvent) => {
+  const handleImport = async (event: RemoteCalendarEvent) => {
     const target = subCalendars[0]?.id;
     if (!target) return;
     const draft = remoteEventToDraft(event, target);
     if (!draft) return;
-    const id = addInterview(draft);
+    const id = await addInterview(draft);
     if (id) updateInterview(id, { externalEventId: event.id });
     sync.removeEvent(event.id);
     sync.setStatusNote(`已导入「${event.summary.slice(0, 20)}」。`);

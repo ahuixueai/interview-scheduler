@@ -23,6 +23,16 @@ const browser = await puppeteer.launch({
 const page = await browser.newPage();
 await page.setViewport({ width: 1000, height: 1400 });
 
+// 阶段 1：先注册登录（主页需要会话）
+await page.goto(BASE_URL + "/login", { waitUntil: "networkidle0" });
+await page.evaluate(async () => {
+  await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "qa-" + Date.now() + "@test.local", password: "qa-pass-123" }),
+  });
+});
+
 async function layoutAudit() {
   return page.evaluate(() => {
     const vw = window.innerWidth;

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { eq, max } from "drizzle-orm";
+import { and, eq, max } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { interviews, rowToInterview } from "@/lib/schema";
+import { interviews, rowToInterview, subCalendars } from "@/lib/schema";
 import { requireUser } from "@/lib/auth/session";
 import { zonedWallToUtc } from "@/lib/time-core";
 
@@ -43,6 +43,16 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const db = getDb();
+  // 子日历必须属于当前用户（防脏数据）
+  const ownedCalendar = await db
+    .select({ id: subCalendars.id })
+    .from(subCalendars)
+    .where(and(eq(subCalendars.userId, session.userId), eq(subCalendars.id, draft.subCalendarId)))
+    .limit(1);
+  if (ownedCalendar.length === 0) {
+    return NextResponse.json({ error: "子日历不存在或不属于当前用户" }, { status: 400 });
+  }
+
   const last = await db
     .select({ value: max(interviews.sortOrder) })
     .from(interviews)

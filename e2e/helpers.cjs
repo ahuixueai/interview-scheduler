@@ -35,12 +35,76 @@ function collectConsole(page) {
   return msgs;
 }
 
-/** 通过注册表单完成登录（阶段 1 起所有页面需要登录；返回后停在主页并等待数据加载） */
+/** 轮询等待条件成立（抛错带标签） */
+async function waitFor(fn, timeoutMs, label) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      if (await fn()) return true;
+    } catch {
+      /* 继续等 */
+    }
+    await sleep(150);
+  }
+  throw new Error("waitFor 超时: " + (label || "条件未满足"));
+}
+
+/** 解出拼图 token 里的正确拖动距离（base64url 负载） */
+function decodePuzzleToken(token) {
+  const body = token.split(".")[0].replace(/-/g, "+").replace(/_/g, "/");
+  const padded = body + "=".repeat((4 - (body.length % 4)) % 4);
+  return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+}
+
+/** 完整走一遍注册人机验证：点获取验证码 → 拖拼图对齐缺口 → 等验证码发送响应 */
+async function solvePuzzleOnPage(page) {
+  let challenge = null;
+  const onChallenge = (res) => {
+    if (res.url().includes("/api/verification/puzzle") && res.request().method() === "POST") {
+      res.json().then((j) => (challenge = j)).catch(() => {});
+    }
+  };
+  page.on("response", onChallenge);
+  await page.click("button[aria-label='获取验证码']");
+  await waitFor(() => challenge !== null, 10000, "拼图谜题响应");
+  page.off("response", onChallenge);
+
+  const answer = decodePuzzleToken(challenge.token).x;
+  const canvas = await page.$("canvas[aria-label*='拼图滑块']");
+  if (!canvas) throw new Error("拼图画布未出现");
+  const box = await canvas.boundingBox();
+  // 滑块初始位置 (16, 57)、尺寸 46，画布 320×160 与 CSS 等大
+  const startX = box.x + 16 + 23;
+  const startY = box.y + 57 + 23;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + answer, startY, { steps: 24 });
+  await sleep(150);
+  await page.mouse.up();
+
+  let sendResult = null;
+  const onSend = (res) => {
+    if (res.url().includes("/api/verification/send") && res.request().method() === "POST") {
+      res.json().then((j) => (sendResult = j)).catch(() => {});
+    }
+  };
+  page.on("response", onSend);
+  await waitFor(() => sendResult !== null, 15000, "验证码发送响应");
+  page.off("response", onSend);
+  return sendResult;
+}
+
+/** 通过注册表单完成登录（注册需拼图滑块 + 邮箱验证码；开发环境验证码随响应返回） */
 async function ensureLoggedIn(page, email, password) {
   await page.goto(BASE_URL + "/login", { waitUntil: "networkidle0" });
   await page.click("button[aria-label='切换到注册']");
   await page.type("input[aria-label='邮箱']", email);
   await page.type("input[aria-label='密码']", password);
+  const send = await solvePuzzleOnPage(page);
+  if (!send || send.status !== "sent" || !send.debugCode) {
+    throw new Error("注册验证码发送失败: " + JSON.stringify(send));
+  }
+  await page.type("input[aria-label='验证码']", String(send.debugCode));
   await page.click("button[aria-label='注册并登录']");
   await page.waitForFunction(() => window.location.pathname === "/", { timeout: 20000 });
   await page.waitForSelector("ul li", { timeout: 20000 });
@@ -53,7 +117,20 @@ function filterNoise(msgs, extraAllow = []) {
   return msgs.filter((m) => !allowed.some((a) => m.includes(a)));
 }
 
+/** 清空本地验证码表，避免 e2e 反复运行触发 IP 频率限制；非本地环境静默跳过 */
+function resetVerificationState() {
+  try {
+    require("node:child_process").execSync(
+      'psql "postgresql://localhost:5432/interview_scheduler" -c "DELETE FROM email_verifications;"',
+      { stdio: "ignore" },
+    );
+  } catch {
+    /* 线上/无 psql 环境跳过 */
+  }
+}
+
 async function launchBrowser() {
+  resetVerificationState();
   return puppeteer.launch({
     executablePath: CHROME_PATH,
     headless: "new",
@@ -196,6 +273,9 @@ module.exports = {
   scrollToCard,
   clickUntil,
   ensureLoggedIn,
+  solvePuzzleOnPage,
+  decodePuzzleToken,
+  waitFor,
   cardOrder,
   swipeLeftByMouse,
   swipeRightByMouse,

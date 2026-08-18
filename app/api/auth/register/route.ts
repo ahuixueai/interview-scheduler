@@ -5,8 +5,9 @@ import { users } from "@/lib/schema";
 import { hashPassword } from "@/lib/password";
 import { getSession } from "@/lib/auth/session";
 import { registerSchema } from "@/lib/validation";
+import { verifyCode } from "@/lib/verification";
 
-/** POST /api/auth/register：邮箱+密码注册（任意邮箱），成功即建立会话 */
+/** POST /api/auth/register：邮箱+密码+验证码注册（任意邮箱），成功即建立会话 */
 export async function POST(request: Request): Promise<NextResponse> {
   let body: unknown;
   try {
@@ -30,6 +31,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     .limit(1);
   if (existing.length > 0) {
     return NextResponse.json({ error: "该邮箱已注册，请直接登录" }, { status: 409 });
+  }
+
+  // 第二道关：验证码（一次性、10 分钟有效、5 次试错）
+  const codeCheck = await verifyCode(email, parsed.data.code, "register", Date.now());
+  if (!codeCheck.ok) {
+    return NextResponse.json({ error: codeCheck.error ?? "验证码校验失败" }, { status: 401 });
   }
 
   const id = crypto.randomUUID();

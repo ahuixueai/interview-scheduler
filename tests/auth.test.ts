@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hashPassword, verifyPassword } from "../lib/password";
-import { credentialsSchema } from "../lib/validation";
+import { credentialsSchema, registerSchema, verificationSendSchema } from "../lib/validation";
 
 describe("密码哈希（bcrypt）", () => {
   it("哈希后可正确校验，且不保存明文", async () => {
@@ -29,5 +29,20 @@ describe("登录/注册参数校验", () => {
     for (const email of ["a@qq.com", "b@163.com", "c@outlook.com", "d@gmail.com"]) {
       expect(credentialsSchema.safeParse({ email, password: "pass-123456" }).success).toBe(true);
     }
+  });
+
+  it("注册必须携带 6 位验证码", () => {
+    expect(registerSchema.safeParse({ email: "a@b.com", password: "pass-123456" }).success).toBe(false);
+    expect(registerSchema.safeParse({ email: "a@b.com", password: "pass-123456", code: "12345" }).success).toBe(false);
+    expect(registerSchema.safeParse({ email: "a@b.com", password: "pass-123456", code: "1234567" }).success).toBe(false);
+    expect(registerSchema.safeParse({ email: "a@b.com", password: "pass-123456", code: "123456" }).success).toBe(true);
+  });
+
+  it("发送验证码参数：邮箱 + 拼图 token + 拖动距离", () => {
+    const token = "eyJ4IjoxMDB9.abc123def456"; // 签名部分足够长即可通过 min(20)
+    expect(verificationSendSchema.safeParse({ email: "a@b.com", puzzleToken: token, puzzleOffset: 100 }).success).toBe(true);
+    expect(verificationSendSchema.safeParse({ email: "bad", puzzleToken: token, puzzleOffset: 100 }).success).toBe(false);
+    expect(verificationSendSchema.safeParse({ email: "a@b.com", puzzleToken: "short", puzzleOffset: 100 }).success).toBe(false);
+    expect(verificationSendSchema.safeParse({ email: "a@b.com", puzzleToken: token, puzzleOffset: Number.NaN }).success).toBe(false);
   });
 });

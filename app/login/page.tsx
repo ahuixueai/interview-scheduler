@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useReducedMotion, motion } from "framer-motion";
 import { CalendarCheck } from "lucide-react";
 import { INPUT_CLASS } from "@/lib/ui";
+import RegisterCodeFields from "@/components/RegisterCodeFields";
 
 type Mode = "login" | "register";
 
@@ -15,6 +16,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -25,7 +27,7 @@ export default function LoginPage() {
       const res = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mode === "register" ? { email, password, name } : { email, password }),
+        body: JSON.stringify(mode === "register" ? { email, password, name, code } : { email, password }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -123,6 +125,15 @@ export default function LoginPage() {
               autoComplete={mode === "login" ? "current-password" : "new-password"}
             />
           </label>
+
+          {mode === "register" ? (
+            <RegisterCodeFields
+              email={email}
+              code={code}
+              onCodeChange={setCode}
+              onSendError={(message) => setError(message || null)}
+            />
+          ) : null}
 
           {error ? (
             <p className="text-xs font-medium text-danger" role="alert">

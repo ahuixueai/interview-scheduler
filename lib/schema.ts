@@ -24,6 +24,20 @@ export const subCalendars = pgTable("sub_calendars", {
   createdAt: text("created_at").notNull(),
 });
 
+/** 邮箱验证码：注册/找回密码用；只存哈希、一次性、限次、过期 */
+export const emailVerifications = pgTable("email_verifications", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  /** 发送方 IP 的 SHA-256 哈希（防滥用计数用，不存明文 IP） */
+  ipHash: text("ip_hash").notNull(),
+  purpose: text("purpose").notNull(),
+  codeHash: text("code_hash").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  consumedAt: text("consumed_at"),
+  createdAt: text("created_at").notNull(),
+});
+
 export const interviews = pgTable("interviews", {
   id: text("id").primaryKey(),
   userId: text("user_id")

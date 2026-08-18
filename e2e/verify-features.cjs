@@ -565,6 +565,150 @@ const themeOf = (page) =>
     await page.close();
   }
 
+  // ================= K. 注册安全（拼图滑块 + 邮箱验证码，阶段 4 核心） =================
+  {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 900, height: 1100 });
+    const msgs = H.collectConsole(page);
+    await page.goto(H.BASE_URL + "/login", { waitUntil: "networkidle0" });
+    await page.click("button[aria-label='切换到注册']");
+    await sleep(400);
+
+    // K1. 注册表单出现验证码行
+    let h = await page.content();
+    r.check("注册页含验证码输入与获取按钮", h.includes("获取验证码") && h.includes("验证码"));
+
+    // K2. 不带验证码提交被服务端拒绝
+    const kEmail = "k-sec-" + Date.now() + "@test.local";
+    await page.type("input[aria-label='邮箱']", kEmail);
+    await page.type("input[aria-label='密码']", "k-pass-123");
+    await page.click("button[aria-label='注册并登录']");
+    await sleep(900);
+    h = await page.content();
+    r.check("无验证码注册被拒绝", h.includes("请输入 6 位验证码"));
+
+    // K3. 点获取验证码 → 弹出拼图
+    await page.click("button[aria-label='获取验证码']");
+    await sleep(700);
+    h = await page.content();
+    r.check("人机验证弹窗出现", h.includes("人机验证"));
+
+    // 捕获谜题（点换一张会重新请求，保证拿到 token）
+    let challenge = null;
+    const onChallenge = (res) => {
+      if (res.url().includes("/api/verification/puzzle") && res.request().method() === "POST") {
+        res.json().then((j) => (challenge = j)).catch(() => {});
+      }
+    };
+    page.on("response", onChallenge);
+    await page.click("button[aria-label='换一张拼图']");
+    await H.waitFor(() => challenge !== null, 10000, "拼图谜题");
+    page.off("response", onChallenge);
+    const answer = H.decodePuzzleToken(challenge.token).x;
+
+    // K4. 先拖错（误差 30px）→ 失败提示；再拖对 → 发送成功
+    const dragPiece = async (offset) => {
+      const canvas = await page.$("canvas[aria-label*='拼图滑块']");
+      const box = await canvas.boundingBox();
+      const sx = box.x + 16 + 23;
+      const sy = box.y + 57 + 23;
+      await page.mouse.move(sx, sy);
+      await page.mouse.down();
+      await page.mouse.move(sx + offset, sy, { steps: 22 });
+      await sleep(120);
+      await page.mouse.up();
+    };
+    await dragPiece(answer + 30);
+    await sleep(700);
+    h = await page.content();
+    r.check("拼图拖错显示失败提示", h.includes("位置不对，请重试"));
+
+    let sendResult = null;
+    const onSend = (res) => {
+      if (res.url().includes("/api/verification/send") && res.request().method() === "POST") {
+        res.json().then((j) => (sendResult = j)).catch(() => {});
+      }
+    };
+    page.on("response", onSend);
+    await dragPiece(answer);
+    await H.waitFor(() => sendResult !== null, 15000, "验证码发送");
+    page.off("response", onSend);
+    r.check("拼图通过后验证码已发送", sendResult.status === "sent" && /^\d{6}$/.test(String(sendResult.debugCode)));
+    await sleep(600);
+    h = await page.content();
+    r.check("发送成功提示出现", h.includes("验证码已发送"));
+
+    // K5. 错码被拒，正码注册成功
+    await H.setReactInputValue(page, "input[aria-label='验证码']", "000000");
+    await page.click("button[aria-label='注册并登录']");
+    await sleep(900);
+    h = await page.content();
+    r.check("错误验证码被拒绝", h.includes("验证码不正确"));
+    await H.setReactInputValue(page, "input[aria-label='验证码']", String(sendResult.debugCode));
+    await page.click("button[aria-label='注册并登录']");
+    await page.waitForFunction(() => window.location.pathname === "/", { timeout: 20000 });
+    await page.waitForSelector("ul li", { timeout: 20000 });
+    r.check("正确验证码注册成功", true);
+
+    // K6. 已注册邮箱不再发码；新邮箱 60 秒内重发被限流（429）
+    const apiChecks = await page.evaluate(async (email) => {
+      const solve = async () => {
+        const challenge = await (await fetch("/api/verification/puzzle", { method: "POST" })).json();
+        const body = challenge.token.split(".")[0].replace(/-/g, "+").replace(/_/g, "/");
+        const padded = body + "=".repeat((4 - (body.length % 4)) % 4);
+        return { token: challenge.token, x: JSON.parse(atob(padded)).x };
+      };
+      const sendFor = async (to) => {
+        const p = await solve();
+        const res = await fetch("/api/verification/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: to, puzzleToken: p.token, puzzleOffset: p.x }),
+        });
+        return { status: res.status, body: await res.json().catch(() => ({})) };
+      };
+      const registered = await sendFor(email);
+      const fresh = "k-limit-" + Date.now() + "@test.local";
+      const first = await sendFor(fresh);
+      const second = await sendFor(fresh);
+      return {
+        registeredStatus: registered.status,
+        registeredBody: registered.body,
+        firstStatus: first.status,
+        firstBody: first.body,
+        secondStatus: second.status,
+      };
+    }, kEmail);
+    r.check(
+      "已注册邮箱获取验证码提示已注册",
+      apiChecks.registeredStatus === 200 && apiChecks.registeredBody.status === "registered",
+      JSON.stringify(apiChecks.registeredBody),
+    );
+    r.check(
+      "新邮箱首次发码成功",
+      apiChecks.firstStatus === 200 && apiChecks.firstBody.status === "sent",
+      JSON.stringify(apiChecks.firstBody),
+    );
+    r.check("60 秒内重发被限流（429）", apiChecks.secondStatus === 429, String(apiChecks.secondStatus));
+    // 负向用例的 400/401/429 是预期行为：只允许这三条状态行，其余 console 必须干净
+    const expectedStatus = [
+      "HTTP 400: " + H.BASE_URL + "/api/auth/register",
+      "HTTP 401: " + H.BASE_URL + "/api/auth/register",
+      "HTTP 429: " + H.BASE_URL + "/api/verification/send",
+    ];
+    const unexpectedStatus = msgs.filter((m) => m.startsWith("HTTP ") && !expectedStatus.includes(m));
+    const otherNoise = H.filterNoise(msgs, ["error: Failed to load resource"]).filter(
+      (m) => !m.startsWith("HTTP "),
+    );
+    r.check(
+      "注册安全场景 console 干净（预期 400/401/429 除外）",
+      unexpectedStatus.length === 0 && otherNoise.length === 0,
+      msgs.join(" | "),
+    );
+    await page.close();
+  }
+
+
   await browser.close();
   const ok = r.finish();
   process.exit(ok ? 0 : 1);

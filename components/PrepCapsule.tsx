@@ -65,6 +65,7 @@ export default function PrepCapsule({ prep, company }: PrepCapsuleProps) {
             <Link
               href={prep.resumeUrl}
               target="_blank"
+              prefetch={false}
               aria-label={`预览 ${company} 的简历 PDF`}
               className={ACTION_CHIP_CLASS}
             >

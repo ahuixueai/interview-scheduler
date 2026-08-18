@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Zap } from "lucide-react";
 import type { Interview, SubCalendar } from "@/types";
 import { INTERVIEW_TYPE_ICONS, INTERVIEW_TYPE_LABELS } from "@/lib/labels";
 import DualTimeZone from "./DualTimeZone";
+import { formatReminders } from "@/lib/reminders";
 import ScaleButton from "./ScaleButton";
 import PrepCapsule from "./PrepCapsule";
 import CardActions from "./CardActions";
@@ -157,6 +158,10 @@ const InterviewCard = memo(function InterviewCard({
         endUtc={interview.endUtc}
         sourceTimeZone={interview.sourceTimeZone}
       />
+
+      <p className="mt-2 text-[11px] text-ink-tertiary">
+        ⏰ {formatReminders(interview.reminders)}
+      </p>
 
       <AnimatePresence initial={false}>
         {capsuleOpen ? (

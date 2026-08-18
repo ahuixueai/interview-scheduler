@@ -1,20 +1,20 @@
 import type { Interview } from "@/types";
 import { escapeIcs, toIcsUtc } from "./ics-core";
+import { DEFAULT_REMINDERS, formatReminderLabel } from "./reminders";
 
 const BACKSLASH = String.fromCharCode(92);
 
-/** 每场面试的提醒：提前 1 天 + 提前 1 小时（手机原生通知） */
-function buildValarms(): string {
+/** 单场面试的 VALARM：按该场设置的提醒时间生成（缺省用默认；空数组 = 不提醒） */
+function buildValarms(reminders: number[] | undefined): string {
+  const minutes = reminders ?? DEFAULT_REMINDERS;
   const lines: string[] = [];
-  for (const [minutes, text] of [
-    [1440, "面试将在明天开始"],
-    [60, "面试将在 1 小时后开始"],
-  ] as const) {
+  for (const m of [...minutes].sort((a, b) => b - a)) {
+    if (m <= 0) continue;
     lines.push(
       "BEGIN:VALARM",
       "ACTION:DISPLAY",
-      "DESCRIPTION:" + escapeIcs(text),
-      `TRIGGER:-PT${minutes}M`,
+      "DESCRIPTION:" + escapeIcs("面试提醒（" + formatReminderLabel(m) + "）"),
+      `TRIGGER:-PT${m}M`,
       "END:VALARM",
     );
   }
@@ -44,7 +44,7 @@ export function buildCalendarFeed(interviews: Interview[]): string {
       "SUMMARY:" + escapeIcs(offerTag + interview.company + " · " + interview.position),
       "DESCRIPTION:" + escapeIcs([interview.prep.note, interview.prep.meetingUrl ? "会议链接：" + interview.prep.meetingUrl : ""].filter(Boolean).join(BACKSLASH + "n")),
     );
-    lines.push(buildValarms());
+    lines.push(buildValarms(interview.reminders));
     lines.push("END:VEVENT");
   }
 

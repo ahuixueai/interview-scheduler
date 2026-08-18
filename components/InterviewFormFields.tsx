@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { InterviewType, SubCalendar } from "@/types";
 import { INTERVIEW_TYPE_LABELS } from "@/lib/labels";
 import { INPUT_CLASS, SELECT_CLASS } from "@/lib/ui";
+import { REMINDER_PRESETS, formatReminderLabel } from "@/lib/reminders";
 
 export interface InterviewFormState {
   company: string;
@@ -15,6 +16,7 @@ export interface InterviewFormState {
   dateStr: string;
   timeStr: string;
   durationMinutes: string;
+  reminders: number[];
   meetingUrl: string;
   jdNotes: string;
 }
@@ -151,6 +153,36 @@ export default function InterviewFormFields({
           </select>
         </Field>
       </div>
+      <Field label="提醒（可多选，全不选 = 不提醒）">
+        <div className="flex flex-wrap gap-2">
+          {REMINDER_PRESETS.map((minutes) => {
+            const checked = form.reminders.includes(minutes);
+            const toggle = () =>
+              onChange({
+                reminders: checked
+                  ? form.reminders.filter((m) => m !== minutes)
+                  : [...form.reminders, minutes],
+              });
+            return (
+              <label
+                key={minutes}
+                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-colors ${
+                  checked ? "bg-primary/20 text-ink" : "bg-ink/5 text-ink-secondary"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={toggle}
+                  aria-label={`提醒${formatReminderLabel(minutes)}`}
+                  className="sr-only"
+                />
+                {formatReminderLabel(minutes)}
+              </label>
+            );
+          })}
+        </div>
+      </Field>
       <Field label="会议/测评链接（可选）">
         <input
           className={INPUT_CLASS}

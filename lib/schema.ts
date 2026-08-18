@@ -42,6 +42,8 @@ export const interviews = pgTable("interviews", {
   note: text("note"),
   focusAreas: jsonb("focus_areas").$type<string[]>().default([]),
   externalEventId: text("external_event_id"),
+  /** 提醒时间（开始前分钟数）；默认 [1440, 60] = 提前 1 天 + 1 小时 */
+  reminderMinutes: jsonb("reminder_minutes").$type<number[]>().default([1440, 60]),
   /** 列表展示顺序（手动拖拽排序 + 优先级重排持久化） */
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: text("created_at").notNull(),
@@ -71,6 +73,7 @@ export function rowToInterview(row: InterviewRow): Interview {
       resumeUrl: row.resumeUrl ?? null,
       jdNotes: row.jdNotes ?? null,
     },
+    reminders: row.reminderMinutes ?? [1440, 60],
     ...(row.externalEventId ? { externalEventId: row.externalEventId } : {}),
   };
 }

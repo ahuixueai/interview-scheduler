@@ -40,6 +40,8 @@ export interface Interview {
   status: InterviewStatus;
   subCalendarId: string;
   prep: PrepInfo;
+  /** 提醒时间（开始前分钟数，如 [1440, 60] = 提前 1 天 + 1 小时）；空数组 = 不提醒；缺失时按默认 [1440, 60] */
+  reminders?: number[];
   /** Google Calendar 远端事件 id（已推送时存在），用于后续更新/删除而非重复创建 */
   externalEventId?: string | null;
 }
@@ -57,6 +59,8 @@ export interface InterviewDraft {
   startTime: string;
   sourceTimeZone: string;
   durationMinutes: number;
+  /** 提醒时间（开始前分钟数）；缺省时用默认 [1440, 60] */
+  reminders?: number[];
   /** 可空串 → null */
   meetingUrl: string;
   /** 可空串 → null */
@@ -76,5 +80,6 @@ export interface InterviewUpdatePatch {
   sourceTimeZone?: string;
   meetingUrl?: string | null;
   jdNotes?: string | null;
+  reminders?: number[];
   externalEventId?: string | null;
 }

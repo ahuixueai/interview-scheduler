@@ -58,6 +58,18 @@ describe("订阅日历生成器", () => {
     expect(feed).toContain("[Offer] Offer公司");
   });
 
+  it("自定义提醒：只按该场设置生成 VALARM", () => {
+    const feed = buildCalendarFeed([makeInterview({ reminders: [30] })]);
+    expect(feed).toContain("TRIGGER:-PT30M");
+    expect(feed).not.toContain("TRIGGER:-PT1440M");
+    expect(feed).not.toContain("TRIGGER:-PT60M");
+  });
+
+  it("空提醒数组 = 不提醒（无 VALARM）", () => {
+    const feed = buildCalendarFeed([makeInterview({ reminders: [] })]);
+    expect(feed).not.toContain("BEGIN:VALARM");
+  });
+
   it("空列表也是合法日历", () => {
     const feed = buildCalendarFeed([]);
     expect(feed).toContain("BEGIN:VCALENDAR");

@@ -16,6 +16,7 @@ const draftSchema = z.object({
   startTime: z.string().regex(/^\d{2}:\d{2}$/, "时间格式不正确"),
   sourceTimeZone: z.string().min(1),
   durationMinutes: z.number().int().min(15).max(480),
+  reminders: z.array(z.number().int().min(0).max(10080)).max(3).optional(),
   meetingUrl: z.string().max(500).optional(),
   jdNotes: z.string().max(5000).optional(),
 });
@@ -74,6 +75,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     sourceTimeZone: draft.sourceTimeZone,
     meetingUrl: draft.meetingUrl?.trim() || null,
     jdNotes: draft.jdNotes?.trim() || null,
+    reminderMinutes: draft.reminders ?? [1440, 60],
     focusAreas: [],
     sortOrder: (last[0]?.value ?? -1) + 1,
     createdAt: now,

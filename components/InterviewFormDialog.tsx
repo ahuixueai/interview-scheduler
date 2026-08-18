@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import type { Interview } from "@/types";
 import { useScheduleStore } from "@/store/useScheduleStore";
 import { getLocalTimeZone, wallDateInZone, wallTimeInZone, zonedWallToUtc } from "@/lib/time";
+import { DEFAULT_REMINDERS } from "@/lib/reminders";
 import { supportedTimeZones } from "@/lib/timezones";
 import { useFocusTrap } from "@/lib/useFocusTrap";
 import ScaleButton from "./ScaleButton";
@@ -38,6 +39,7 @@ export default function InterviewFormDialog({ mode, onClose }: InterviewFormDial
     durationMinutes: editing
       ? String(Math.round((Date.parse(editing.endUtc) - Date.parse(editing.startUtc)) / 60_000))
       : "60",
+    reminders: editing?.reminders ?? DEFAULT_REMINDERS,
     meetingUrl: editing?.prep.meetingUrl ?? "",
     jdNotes: editing?.prep.jdNotes ?? "",
   });
@@ -90,6 +92,7 @@ export default function InterviewFormDialog({ mode, onClose }: InterviewFormDial
           startTime: form.timeStr,
           sourceTimeZone: form.sourceTimeZone,
           durationMinutes: duration,
+          reminders: form.reminders,
           meetingUrl: form.meetingUrl,
           jdNotes: form.jdNotes,
         });
@@ -107,6 +110,7 @@ export default function InterviewFormDialog({ mode, onClose }: InterviewFormDial
         startUtc,
         endUtc: new Date(Date.parse(startUtc) + duration * 60_000).toISOString(),
         sourceTimeZone: form.sourceTimeZone,
+        reminders: form.reminders,
         meetingUrl: form.meetingUrl.trim() === "" ? null : form.meetingUrl.trim(),
         jdNotes: form.jdNotes.trim() === "" ? null : form.jdNotes.trim(),
       });

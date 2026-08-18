@@ -469,6 +469,49 @@ const themeOf = (page) =>
     await page.close();
   }
 
+  // ================= I. 提醒时间自定义（阶段 3 核心） =================
+  {
+    const { page, msgs } = await H.openPage(browser);
+
+    // 卡片默认显示「提前 1 天、提前 1 小时」
+    let h = await page.content();
+    r.check("卡片默认显示提醒设置", h.includes("提前 1 天、提前 1 小时"));
+
+    // 编辑腾讯：取消默认，只勾选提前 30 分钟
+    await page.click("button[aria-label='编辑 腾讯 面试']");
+    await sleep(600);
+    await page.click("input[aria-label='提醒提前 1 天']");
+    await page.click("input[aria-label='提醒提前 1 小时']");
+    await page.click("input[aria-label='提醒提前 30 分钟']");
+    await page.click("button[aria-label='保存修改']");
+    await sleep(800);
+    h = await page.content();
+    r.check("保存后卡片显示新提醒设置", h.includes("提前 30 分钟"));
+
+    // 订阅源按新设置生成
+    const feedUrl = await page.evaluate(async () => {
+      const data = await (await fetch("/api/calendar/feed-info")).json();
+      return data.url;
+    });
+    const feed = await (await fetch(feedUrl)).text();
+    const tencentBlock = feed.split("BEGIN:VEVENT").find((block) => block.includes("腾讯"));
+    r.check(
+      "订阅源只含 30 分钟提醒",
+      (tencentBlock ?? "").includes("TRIGGER:-PT30M") && !(tencentBlock ?? "").includes("TRIGGER:-PT1440M"),
+    );
+
+    // 恢复默认设置（避免污染后续）
+    await page.click("button[aria-label='编辑 腾讯 面试']");
+    await sleep(600);
+    await page.click("input[aria-label='提醒提前 1 天']");
+    await page.click("input[aria-label='提醒提前 1 小时']");
+    await page.click("input[aria-label='提醒提前 30 分钟']");
+    await page.click("button[aria-label='保存修改']");
+    await sleep(800);
+    r.check("提醒场景 console 干净", H.filterNoise(msgs).length === 0, H.filterNoise(msgs).join(" | "));
+    await page.close();
+  }
+
   await browser.close();
   const ok = r.finish();
   process.exit(ok ? 0 : 1);

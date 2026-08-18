@@ -17,6 +17,7 @@ const patchSchema = z.object({
   sourceTimeZone: z.string().min(1).optional(),
   meetingUrl: z.string().max(500).nullable().optional(),
   jdNotes: z.string().max(5000).nullable().optional(),
+  reminders: z.array(z.number().int().min(0).max(10080)).max(3).optional(),
   externalEventId: z.string().nullable().optional(),
 });
 
@@ -50,9 +51,14 @@ export async function PATCH(
     return NextResponse.json({ error: "面试不存在" }, { status: 404 });
   }
 
+  const { reminders, ...rest } = parsed.data;
   await db
     .update(interviews)
-    .set({ ...parsed.data, updatedAt: new Date().toISOString() })
+    .set({
+      ...rest,
+      ...(reminders !== undefined ? { reminderMinutes: reminders } : {}),
+      updatedAt: new Date().toISOString(),
+    })
     .where(eq(interviews.id, id));
 
   const row = await db.select().from(interviews).where(eq(interviews.id, id)).limit(1);

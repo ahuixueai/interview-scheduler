@@ -41,7 +41,9 @@ npm run db:push              # 建表
 npm run dev                  # http://localhost:3100
 ```
 
-首次打开会进入登录页：**任意邮箱注册**（QQ / 163 / Outlook / Gmail 均可），新账号一次性自动播种演示数据（清空后不再出现）。
+首次打开会进入登录页：**任意邮箱注册**（QQ / 163 / Outlook / Gmail 均可），注册需「拼图滑块 + 邮箱验证码」，新账号一次性自动播种演示数据（清空后不再出现）。
+
+> 本地开发未配置 Resend 时，验证码会打印在 dev 终端日志里（`[DEV] 验证码 123456 → 邮箱`），方便联调；线上必须配置 Resend 才能发真实邮件（见 [docs/Resend配置指南.md](./docs/Resend配置指南.md)）。
 
 常用命令：`npm run typecheck`（tsc）· `npm run test`（单测）· `npm run build` · `npm run test:e2e`（需先起 dev + 数据库）· `npm run qa:visual`
 

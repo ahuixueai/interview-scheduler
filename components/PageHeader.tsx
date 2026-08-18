@@ -16,8 +16,10 @@ interface PageHeaderProps {
 
 export default function PageHeader({ userEmail }: PageHeaderProps) {
   const [managerOpen, setManagerOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
   const syncDialogOpen = useUiStore((s) => s.syncDialogOpen);
+  const createDialogOpen = useUiStore((s) => s.createDialogOpen);
+  const openCreateDialog = useUiStore((s) => s.openCreateDialog);
+  const closeCreateDialog = useUiStore((s) => s.closeCreateDialog);
   const managerButtonRef = useRef<HTMLButtonElement | null>(null);
   const createButtonRef = useRef<HTMLButtonElement | null>(null);
   const syncButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -35,10 +37,12 @@ export default function PageHeader({ userEmail }: PageHeaderProps) {
     managerButtonRef.current?.focus();
   };
 
-  const closeCreate = () => {
-    setCreateOpen(false);
-    createButtonRef.current?.focus();
-  };
+  // 新建对话框关闭后焦点归还触发按钮（首次渲染不触发；空状态也会打开该对话框）
+  const prevCreateOpen = useRef(false);
+  useEffect(() => {
+    if (prevCreateOpen.current && !createDialogOpen) createButtonRef.current?.focus();
+    prevCreateOpen.current = createDialogOpen;
+  }, [createDialogOpen]);
 
   return (
     <header className="mb-6">
@@ -49,9 +53,9 @@ export default function PageHeader({ userEmail }: PageHeaderProps) {
             {userEmail ? `${userEmail} · ` : ""}向左滑标记 Offer，向右滑挂掉
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <ScaleButton
-            onClick={() => setCreateOpen(true)}
+            onClick={openCreateDialog}
             ariaLabel="新建面试"
             buttonRef={createButtonRef}
             className="bg-accent text-on-accent shadow-sm hover:bg-accent/90"
@@ -93,7 +97,9 @@ export default function PageHeader({ userEmail }: PageHeaderProps) {
         </div>
       </div>
       <PepTalkBanner />
-      {createOpen ? <InterviewFormDialog mode={{ kind: "create" }} onClose={closeCreate} /> : null}
+      {createDialogOpen ? (
+        <InterviewFormDialog mode={{ kind: "create" }} onClose={closeCreateDialog} />
+      ) : null}
       {managerOpen ? <SubCalendarManager onClose={closeManager} /> : null}
       <SyncSettingsDialog />
     </header>

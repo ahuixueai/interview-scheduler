@@ -8,7 +8,10 @@ import { calcPriority } from "@/lib/priority";
 import { celebrateWithConfetti, vibrate } from "@/lib/feedback";
 import { useNow } from "@/lib/useNow";
 import { FALLBACK_SUB_CALENDAR } from "@/lib/labels";
+import { formatRelativeStart } from "@/lib/relative";
 import ScheduleItem from "./ScheduleItem";
+import DemoBanner from "./DemoBanner";
+import EmptyState from "./EmptyState";
 import ListControls from "./ListControls";
 import ListOverlays from "./ListOverlays";
 
@@ -163,8 +166,17 @@ export default function InterviewList() {
     );
   }
 
+  if (loaded && interviews.length === 0) {
+    return (
+      <section aria-label="面试与笔试列表" tabIndex={-1} ref={sectionRef}>
+        <EmptyState />
+      </section>
+    );
+  }
+
   return (
     <section aria-label="面试与笔试列表" tabIndex={-1} ref={sectionRef}>
+      <DemoBanner visible={loaded && interviews.length > 0} />
       <ListControls
         subCalendars={subCalendars}
         selectedId={selectedSubCalendarId}
@@ -182,6 +194,7 @@ export default function InterviewList() {
         {visibleItems.map((iv) => {
           const score = now === null ? null : calcPriority(iv, now);
           const sub = subCalendars.find((c) => c.id === iv.subCalendarId) ?? FALLBACK_SUB_CALENDAR;
+          const relativeLabel = now === null ? null : formatRelativeStart(iv.startUtc, now);
           // 备战窗口布尔统一在此计算（唯一时间源）
           const startMs = Date.parse(iv.startUtc);
           const inPrepWindow =
@@ -192,7 +205,7 @@ export default function InterviewList() {
               key={iv.id}
               interview={iv}
               subCalendar={sub}
-              score={score}
+              relativeLabel={relativeLabel}
               isTopPriority={score !== null && iv.status !== "declined" && score === maxScore}
               inPrepWindow={inPrepWindow}
               capsuleAutoExpand={capsuleAutoExpand}

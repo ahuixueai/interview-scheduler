@@ -28,7 +28,10 @@ async function indexOf(page, name) {
   const html = await page.content();
   r.check("注册登录后进入主页", html.includes("面试与笔试日程"));
   r.check("水合后最高优先级徽章出现", html.includes("最高优先级"));
-  r.check("水合后优先分出现", html.includes("优先分"));
+  r.check(
+    "水合后相对时间标签出现（明天/天后/小时等）",
+    ["小时后", "明天", "天后", "周后", "不到 1 小时"].some((kw) => html.includes(kw)),
+  );
   r.check("同区卡片显示「与你所在时区相同」", html.includes("与你所在时区相同"));
   r.check("水合后无占位符残留", !(html.includes(">…</span>") || html.includes(">…</p>")));
   r.check("LA 卡本地列换算为 NY 17:00", html.includes("17:00"));

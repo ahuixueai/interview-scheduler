@@ -262,8 +262,8 @@ const themeOf = (page) =>
     r.check("删除前有确认对话框", h.includes("此操作无法撤销"));
     await page.click("button[aria-label='确认删除']");
     await sleep(800);
-    h = await page.content();
-    r.check("删除后从列表移除", !h.includes("测试岗位改"));
+    const listAfterDelete = await page.$$eval("ul li", (els) => els.map((el) => el.textContent || "").join(" | "));
+    r.check("删除后从列表移除", !listAfterDelete.includes("测试岗位改"));
     await page.reload({ waitUntil: "networkidle0" });
     await sleep(2500);
     h = await page.content();
@@ -509,6 +509,59 @@ const themeOf = (page) =>
     await page.click("button[aria-label='保存修改']");
     await sleep(800);
     r.check("提醒场景 console 干净", H.filterNoise(msgs).length === 0, H.filterNoise(msgs).join(" | "));
+    await page.close();
+  }
+
+  // ================= J. 打磨项（提示条 / 删除撤销 / 空状态 / Toast） =================
+  {
+    const { page, msgs } = await H.openPage(browser);
+
+    // 演示数据提示条：出现 → 关闭 → 刷新后不再出现
+    let h = await page.content();
+    r.check("演示数据提示条出现", h.includes("这些是演示数据"));
+    await page.click("button[aria-label='关闭演示数据说明']");
+    await sleep(400);
+    h = await page.content();
+    r.check("提示条可关闭", !h.includes("这些是演示数据"));
+    await page.reload({ waitUntil: "networkidle0" });
+    await sleep(2500);
+    h = await page.content();
+    r.check("提示条关闭后刷新不再出现", !h.includes("这些是演示数据"));
+
+    // 删除撤销：删除（确认）→ toast 出现 + 撤销 → 恢复
+    await page.click("button[aria-label='删除 美团 面试']");
+    await sleep(500);
+    h = await page.content();
+    r.check("删除前有确认对话框", h.includes("此操作无法撤销"));
+    await page.click("button[aria-label='确认删除']");
+    await sleep(800);
+    h = await page.content();
+    r.check("删除后出现撤销 Toast", h.includes("已删除「美团"));
+    await page.click("button[aria-label='撤销']");
+    await sleep(1800);
+    const restoredCards = await page.$$eval("ul li", (els) => els.map((el) => el.textContent || "").join(" | "));
+    r.check("撤销后面试恢复", restoredCards.includes("美团"));
+
+    // 空状态：删光全部面试 → 空状态 + 新建入口可打开表单
+    await page.evaluate(async () => {
+      const schedule = await (await fetch("/api/schedule")).json();
+      for (const iv of schedule.interviews) {
+        await fetch("/api/interviews/" + iv.id, { method: "DELETE" });
+      }
+    });
+    await page.reload({ waitUntil: "networkidle0" });
+    await sleep(2500);
+    h = await page.content();
+    r.check("空状态出现", h.includes("还没有任何面试安排"));
+    await page.click("button[aria-label='新建第一场面试']");
+    await sleep(600);
+    h = await page.content();
+    r.check("空状态入口可打开新建表单", h.includes("新建面试 / 笔试"));
+    await page.click("button[aria-label='关闭表单']");
+    await sleep(400);
+    h = await page.content();
+    r.check("表单可关闭", !h.includes("新建面试 / 笔试"));
+    r.check("打磨场景 console 干净", H.filterNoise(msgs).length === 0, H.filterNoise(msgs).join(" | "));
     await page.close();
   }
 

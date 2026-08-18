@@ -8,7 +8,7 @@ import SwipeableReorderItem from "./SwipeableReorderItem";
 interface ScheduleItemProps {
   interview: Interview;
   subCalendar: SubCalendar;
-  score: number | null;
+  relativeLabel: string | null;
   isTopPriority: boolean;
   inPrepWindow: boolean;
   capsuleAutoExpand: boolean;
@@ -27,7 +27,7 @@ interface ScheduleItemProps {
 export default function ScheduleItem({
   interview,
   subCalendar,
-  score,
+  relativeLabel,
   isTopPriority,
   inPrepWindow,
   capsuleAutoExpand,
@@ -65,7 +65,7 @@ export default function ScheduleItem({
       <InterviewCard
         interview={interview}
         subCalendar={subCalendar}
-        score={score}
+        relativeLabel={relativeLabel}
         isTopPriority={isTopPriority}
         inPrepWindow={inPrepWindow}
         capsuleAutoExpand={capsuleAutoExpand}

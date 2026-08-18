@@ -34,7 +34,9 @@ export default function InterviewFormDialog({ mode, onClose }: InterviewFormDial
     importance: String(editing?.importance ?? 3),
     subCalendarId: editing?.subCalendarId ?? subCalendars[0]?.id ?? "",
     sourceTimeZone: editing?.sourceTimeZone ?? getLocalTimeZone(),
-    dateStr: editing ? wallDateInZone(editing.startUtc, editing.sourceTimeZone) : "",
+    dateStr: editing
+      ? wallDateInZone(editing.startUtc, editing.sourceTimeZone)
+      : wallDateInZone(new Date(Date.now() + 86_400_000).toISOString(), getLocalTimeZone()),
     timeStr: editing ? wallTimeInZone(editing.startUtc, editing.sourceTimeZone) : "10:00",
     durationMinutes: editing
       ? String(Math.round((Date.parse(editing.endUtc) - Date.parse(editing.startUtc)) / 60_000))

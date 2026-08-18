@@ -18,8 +18,9 @@ const COLLAPSE_GRACE_MS = 5 * 60_000;
 interface InterviewCardProps {
   interview: Interview;
   subCalendar: SubCalendar;
-  score: number | null;
   isTopPriority: boolean;
+  /** 距开始时间的可读标签（如「明天」「3 天后」）；null = 尚未在客户端计算 */
+  relativeLabel: string | null;
   /** 是否处于「距开始 ≤60 分钟」窗口（由父级统一计算，避免每张卡持有时间源） */
   inPrepWindow: boolean;
   /** 备战胶囊是否允许自动展开（已过手动折叠的 5 分钟宽限） */
@@ -37,8 +38,8 @@ interface InterviewCardProps {
 const InterviewCard = memo(function InterviewCard({
   interview,
   subCalendar,
-  score,
   isTopPriority,
+  relativeLabel,
   inPrepWindow,
   capsuleAutoExpand,
   onCollapseCapsule,
@@ -132,8 +133,8 @@ const InterviewCard = memo(function InterviewCard({
               最高优先级
             </span>
           ) : (
-            <span className="text-xs tabular-nums text-ink-tertiary">
-              {score === null ? "…" : `优先分 ${score}`}
+            <span className="text-xs tabular-nums text-ink-tertiary" suppressHydrationWarning>
+              ⏱ {relativeLabel ?? "…"}
             </span>
           )}
           {inPrepWindow || userExpanded ? (

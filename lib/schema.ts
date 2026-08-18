@@ -9,6 +9,8 @@ export const users = pgTable("users", {
   image: text("image"),
   /** 订阅日历的私有 token（生成后作为只读 .ics 地址的一部分） */
   calendarFeedToken: text("calendar_feed_token"),
+  /** 是否已播种演示数据（只播一次：清空全部面试后不再复活演示数据） */
+  seededAt: text("seeded_at"),
   createdAt: text("created_at").notNull(),
 });
 

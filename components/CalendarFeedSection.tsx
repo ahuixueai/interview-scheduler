@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, Copy, RefreshCw } from "lucide-react";
+import { useUiStore } from "@/store/useUiStore";
 import ScaleButton from "./ScaleButton";
 
 /** 订阅日历区块：复制私有订阅链接 + 重置 + 手机订阅指引（SyncSettingsDialog 内使用） */
@@ -37,6 +38,7 @@ export default function CalendarFeedSection({ active }: { active: boolean }) {
     }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
+    useUiStore.getState().pushToast("订阅链接已复制，去手机日历粘贴即可");
   };
 
   const reset = async () => {

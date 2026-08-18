@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import Toasts from "@/components/Toasts";
 
 export const metadata: Metadata = {
   title: "面试与笔试日程管理",
@@ -22,7 +23,10 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         {/* 普通内联 <script>（而非 next/script）：确保在 HTML 解析期、首帧绘制前同步执行，
             next/script 的 beforeInteractive 会被包进 RSC payload，要等 hydration 后才运行，无法防 FOUC */}
         <script id="theme-init" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {children}
+          <Toasts />
+        </ThemeProvider>
       </body>
     </html>
   );

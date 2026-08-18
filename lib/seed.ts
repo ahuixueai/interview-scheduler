@@ -3,7 +3,7 @@ import type { Interview, SubCalendar } from "@/types";
 import { getLocalTimeZone, zonedWallToUtc, wallDateInZone } from "@/lib/time-core";
 import { calcPriority } from "@/lib/priority";
 import { getDb } from "@/lib/db";
-import { interviews, rowToInterview, rowToSubCalendar, subCalendars } from "@/lib/schema";
+import { interviews, rowToInterview, rowToSubCalendar, subCalendars, users } from "@/lib/schema";
 
 const DAY_MS = 86_400_000;
 const MINUTE_MS = 60_000;
@@ -37,13 +37,18 @@ export async function ensureSeeded(userId: string): Promise<{
   order: string[];
 }> {
   const db = getDb();
+  const [user] = await db
+    .select({ seededAt: users.seededAt })
+    .from(users)
+    .where(eq(users.id, userId));
   const existing = await db
     .select({ id: interviews.id })
     .from(interviews)
     .where(eq(interviews.userId, userId))
     .limit(1);
 
-  if (existing.length === 0) {
+  // 只播一次：用户清空全部面试后进入真正的空状态，演示数据不再复活
+  if (existing.length === 0 && !user?.seededAt) {
     const now = new Date().toISOString();
     // 每个用户独立 UUID：固定 id 会在第二个用户播种时撞主键
     const subDsId = crypto.randomUUID();
@@ -123,6 +128,14 @@ export async function ensureSeeded(userId: string): Promise<{
         return { ...rest, sortOrder: index };
       }),
     );
+  }
+
+  // 记录已播种（含迁移前的存量用户），之后清空面试不再触发演示数据
+  if (!user?.seededAt) {
+    await db
+      .update(users)
+      .set({ seededAt: new Date().toISOString() })
+      .where(eq(users.id, userId));
   }
 
   const interviewRows = await db
